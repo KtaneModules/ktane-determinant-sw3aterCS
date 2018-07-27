@@ -3889,7 +3889,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   CountdownTime: 30
   ModuleType: determinant
-  ModuleDisplayName: Needy Determinants
+  ModuleDisplayName: Determinants
   RequiresTimerVisibility: 0
   WarnAtFiveSeconds: 1
 --- !u!114 &114951452588423460
