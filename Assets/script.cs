@@ -9,9 +9,8 @@ using Newtonsoft.Json;
 public class script : MonoBehaviour {
 
 	public KMAudio Audio;
-	public KMNeedyModule Module;
-	public KMBombInfo Info;
-	public KMModSettings modSettings;
+    public KMBombInfo Info;
+    public KMNeedyModule Module;
 	public KMSelectable[] btn;
 	public KMSelectable minus, submit;
 	public TextMesh Screen;
@@ -24,18 +23,16 @@ public class script : MonoBehaviour {
 	private static int _moduleIdCounter = 1;
 	private int _moduleId = 0;
 	private bool _isSolved = false, _lightsOn = false, _minusPressed = false;
-	
-	//bomb generation stage
-	void Start () {
-		_moduleId = _moduleIdCounter++;
-	}
 
-	//the room is shown
+	//bomb generation stage
 	private void Awake() {
-		GetComponent<KMNeedyModule>().OnNeedyActivation += OnNeedyActivation;
-		GetComponent<KMNeedyModule>().OnNeedyDeactivation += OnNeedyDeactivation;
-		GetComponent<KMNeedyModule>().OnTimerExpired += OnTimerExpired;
-		Init();
+        _moduleId = _moduleIdCounter++;
+        Module.OnNeedyActivation += OnNeedyActivation;
+		Module.OnNeedyDeactivation += OnNeedyDeactivation;
+		Module.OnTimerExpired += OnTimerExpired;
+        Info.OnBombExploded += delegate () { OnEnd(false); };
+        Info.OnBombSolved += delegate () { OnEnd(true); };
+        Init();
 		_lightsOn = true;
 
 		//buttons handling
@@ -74,7 +71,7 @@ public class script : MonoBehaviour {
 
 	protected void OnTimerExpired() {
 		Debug.LogFormat ("[Needy Determinants #{0}] has had its timer expire!", _moduleId);
-		GetComponent<KMNeedyModule>().HandleStrike();
+		Module.HandleStrike();
 		_isSolved = true;
 		_minusPressed = false;
 		answer = 0;
@@ -82,8 +79,17 @@ public class script : MonoBehaviour {
 		Screen.text = "";
 	}
 
-	//generate matrix and problem
-	void generateStage() {
+    void OnEnd(bool n)
+    {
+        bombSolved = true;
+        if (n)
+        {
+            Screen.text = "";
+        }
+    }
+
+    //generate matrix and problem
+    void generateStage() {
 		//generate matrix elements for interval [-9, 9], element in set of integers
 		int elementA = UnityEngine.Random.Range (-9, 10);
 		int elementB = UnityEngine.Random.Range (-9, 10);
@@ -96,7 +102,7 @@ public class script : MonoBehaviour {
 		string str_elementD = Convert.ToString(elementD);
 		true_answer = (elementA * elementD) - (elementB * elementC);
 		string str_true_answer = Convert.ToString(true_answer);
-		Screen.text = str_elementA + "  " + str_elementB + "\n" + str_elementC + "  " + str_elementD;
+		Screen.text = str_elementA + " " + str_elementB + "\n" + str_elementC + " " + str_elementD;
 		Debug.LogFormat ("[Needy Determinants #{0}] has generated with the elements {1}, {2}, {3}, and {4}. The solution is {5}.", _moduleId, str_elementA, str_elementB, str_elementC, str_elementD, str_true_answer);
 	}
 
@@ -153,7 +159,7 @@ public class script : MonoBehaviour {
 
 		//check input against actual determinant
 		if (true_answer == answer) {
-			Debug.LogFormat ("[Needy Determinants #{0}] is termporarily cleared!", _moduleId);
+			Debug.LogFormat ("[Needy Determinants #{0}] is temporarily cleared!", _moduleId);
 			GetComponent<KMNeedyModule> ().HandlePass ();
 			//tbh i should just put this following block in a function
 			_isSolved = true;
@@ -172,4 +178,66 @@ public class script : MonoBehaviour {
 			Screen.text = "";
 		}
 	}
+
+    //twitch plays
+    #pragma warning disable 414
+    private bool bombSolved = false;
+    private readonly string TwitchHelpMessage = @"!{0} submit <#> [Submits the specified determinant]";
+    #pragma warning restore 414
+    IEnumerator ProcessTwitchCommand(string command)
+    {
+        string[] parameters = command.Split(' ');
+        if (Regex.IsMatch(parameters[0], @"^\s*submit\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            yield return null;
+            if (parameters.Length == 2)
+            {
+                int temp = 0;
+                if (int.TryParse(parameters[1], out temp))
+                {
+                    int start = 0;
+                    if (temp < 0)
+                    {
+                        start = 1;
+                        minus.OnInteract();
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    for (int i = start; i < parameters[1].Length; i++)
+                    {
+                        btn[int.Parse(parameters[1][i].ToString())].OnInteract();
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    submit.OnInteract();
+                }
+                else
+                {
+                    yield return "sendtochaterror The specified determinant to submit '" + parameters[1] + "' is invalid!";
+                }
+            }
+            else if (parameters.Length > 2)
+            {
+                yield return "sendtochaterror Too many parameters!";
+            }
+            else if (parameters.Length == 1)
+            {
+                yield return "sendtochaterror Please specify a determinant to submit!";
+            }
+            yield break;
+        }
+    }
+
+    void TwitchHandleForcedSolve()
+    {
+        //The code is done in a coroutine instead of here so that if the solvebomb command was executed this will just input the number right when it activates and it wont wait for its turn in the queue
+        StartCoroutine(DealWithNeedy());
+    }
+
+    private IEnumerator DealWithNeedy()
+    {
+        while (!bombSolved)
+        {
+            while (Screen.text.Equals("")) { yield return new WaitForSeconds(0.1f); }
+            yield return ProcessTwitchCommand("submit " + true_answer);
+        }
+    }
 }
