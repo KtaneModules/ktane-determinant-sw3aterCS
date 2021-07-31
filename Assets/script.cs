@@ -1,10 +1,7 @@
 ﻿using UnityEngine;
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Linq;
-using Newtonsoft.Json;
 
 public class script : MonoBehaviour {
 
@@ -13,6 +10,7 @@ public class script : MonoBehaviour {
     public KMNeedyModule Module;
 	public KMSelectable[] btn;
 	public KMSelectable minus, submit;
+	public GameObject NeedyTimer;
 	public TextMesh Screen;
 
 	//true_answer is the actual answer of the problem. answer is the inputted answer by the defuser.
@@ -32,6 +30,7 @@ public class script : MonoBehaviour {
 		Module.OnTimerExpired += OnTimerExpired;
         Info.OnBombExploded += delegate () { OnEnd(false); };
         Info.OnBombSolved += delegate () { OnEnd(true); };
+		NeedyTimer.SetActive(false);
         Init();
 		_lightsOn = true;
 
@@ -236,7 +235,7 @@ public class script : MonoBehaviour {
     {
         while (!bombSolved)
         {
-            while (Screen.text.Equals("")) { yield return new WaitForSeconds(0.1f); }
+            while (Screen.text.Equals("")) { yield return null; }
             yield return ProcessTwitchCommand("submit " + true_answer);
         }
     }
